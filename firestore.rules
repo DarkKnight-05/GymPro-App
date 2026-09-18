@@ -1,0 +1,136 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function sameGym(gymId) {
+      return signedIn()
+        && profile().gymId == gymId
+        && profile().active == true;
+    }
+
+    function isAdmin(gymId) {
+      return sameGym(gymId)
+        && profile().role == 'ADMIN';
+    }
+
+    function isTrainer(gymId) {
+      return sameGym(gymId)
+        && profile().role == 'TRAINER';
+    }
+
+    function trainerBranch() {
+      return profile().branchRemoteId;
+    }
+
+    match /gyms/{gymId} {
+      allow create: if false;
+      allow read: if sameGym(gymId);
+      allow update, delete: if isAdmin(gymId);
+
+      match /branches/{branchId} {
+        allow read: if sameGym(gymId);
+        allow create, update, delete: if isAdmin(gymId);
+      }
+
+      match /members/{memberId} {
+        allow read: if isAdmin(gymId)
+          || (isTrainer(gymId) && resource.data.branchRemoteId == trainerBranch());
+
+        allow create: if isAdmin(gymId)
+          || (isTrainer(gymId) && request.resource.data.branchRemoteId == trainerBranch());
+
+        allow update: if isAdmin(gymId)
+          || (
+            isTrainer(gymId)
+            && resource.data.branchRemoteId == trainerBranch()
+            && request.resource.data.branchRemoteId == trainerBranch()
+          );
+
+        allow delete: if false;
+      }
+
+      match /payments/{paymentId} {
+        allow read: if isAdmin(gymId)
+          || (isTrainer(gymId) && resource.data.branchRemoteId == trainerBranch());
+
+        allow create: if isAdmin(gymId)
+          || (isTrainer(gymId) && request.resource.data.branchRemoteId == trainerBranch());
+
+        allow update: if isAdmin(gymId)
+          || (
+            isTrainer(gymId)
+            && resource.data.branchRemoteId == trainerBranch()
+            && request.resource.data.branchRemoteId == trainerBranch()
+          );
+
+        allow delete: if false;
+      }
+
+      match /trainers/{trainerId} {
+        allow read: if isAdmin(gymId)
+          || (isTrainer(gymId) && trainerId == request.auth.uid);
+        allow create, update, delete: if isAdmin(gymId);
+      }
+
+      match /measurements/{measurementId} {
+        allow read: if isAdmin(gymId)
+          || (isTrainer(gymId) && resource.data.branchRemoteId == trainerBranch());
+
+        allow create: if isAdmin(gymId)
+          || (isTrainer(gymId) && request.resource.data.branchRemoteId == trainerBranch());
+
+        allow update: if isAdmin(gymId)
+          || (
+            isTrainer(gymId)
+            && resource.data.branchRemoteId == trainerBranch()
+            && request.resource.data.branchRemoteId == trainerBranch()
+          );
+
+        allow delete: if false;
+      }
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+
+      allow create: if
+        (
+          signedIn()
+          && request.auth.uid == uid
+        )
+        ||
+        (
+          signedIn()
+          && isAdmin(request.resource.data.gymId)
+          && request.resource.data.gymId == profile().gymId
+        );
+
+      allow update: if
+        (
+          signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.gymId == resource.data.gymId
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.active == resource.data.active
+          && request.resource.data.branchRemoteId == resource.data.branchRemoteId
+        )
+        ||
+        (
+          signedIn()
+          && isAdmin(resource.data.gymId)
+          && request.resource.data.gymId == resource.data.gymId
+        );
+
+      allow delete: if false;
+    }
+  }
+}

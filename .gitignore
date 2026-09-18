@@ -1,0 +1,13 @@
+.gradle/
+build/
+*/build/
+local.properties
+app/google-services.json
+.firebase/
+functions/node_modules/
+functions/.runtimeconfig.json
+.idea/
+*.iml
+.DS_Store
+gradle.properties
+app/release/

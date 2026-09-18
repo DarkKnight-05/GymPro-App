@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /gyms/{gymId}/members/{memberId}/{fileName} {
+      allow read, write: if request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.gymId == gymId
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.active == true
+        && firestore.get(/databases/(default)/documents/gyms/$(gymId)/members/$(memberId)).data.branchRemoteId != null
+        && (
+          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'ADMIN'
+          ||
+          (
+            firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'TRAINER'
+            && firestore.get(/databases/(default)/documents/gyms/$(gymId)/members/$(memberId)).data.branchRemoteId
+              == firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.branchRemoteId
+          )
+        );
+    }
+  }
+}
