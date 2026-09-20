@@ -90,7 +90,7 @@ fun MemberDetailScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Phone: ${m.phone}")
                     Text("Plan: ${m.planType.name.replace('_', ' ')} • Fee ₹${"%.0f".format(m.feeAmount)}")
-                    Text("Membership start: ${df.format(Date(m.membershipStartDateMillis))}")
+                    Text("Last Fees Date: ${df.format(Date(m.membershipStartDateMillis))}")
                     Text("Expiry / next due: ${df.format(Date(m.nextDueDateMillis))}")
                     Text("Date of joining: ${df.format(Date(m.joinDateMillis))}")
                     Text("Date added to app: ${df.format(Date(m.addedAtMillis))}")
@@ -282,3 +282,4 @@ fun MemberDetailScreen(
         )
     }
 }
+
