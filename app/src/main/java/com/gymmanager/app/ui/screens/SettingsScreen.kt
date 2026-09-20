@@ -58,8 +58,8 @@ fun SettingsScreen(authViewModel:AuthViewModel,settingsStore:SettingsStore,membe
 }
 
 @Composable private fun SetAdminEmailDialog(onSave:(String,String)->Unit,onCancel:()->Unit){
-    var current by remember{mutableStateOf("")};var email by remember{mutableStateOf("")};var error by remember{mutableStateOf<String?>(null)}
-    AlertDialog(onDismissRequest=onCancel,title={Text("Set Recovery Email")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Enter a real email address for password recovery.");OutlinedTextField(email,{email=it},label={Text("Recovery email")});OutlinedTextField(current,{current=it},label={Text("Current password")},visualTransformation=PasswordVisualTransformation());error?.let{Text(it,color=MaterialTheme.colorScheme.error)}}},confirmButton={TextButton(onClick={if(email.isBlank()||!android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches())error="Enter a valid email address." else if(current.isBlank())error="Enter your current password." else onSave(current,email)}){Text("Save")}},dismissButton={TextButton(onClick=onCancel){Text("Cancel")}})
+    var current by remember{mutableStateOf("")};var email by remember{mutableStateOf("")};var showCurrent by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)}
+    AlertDialog(onDismissRequest=onCancel,title={Text("Set Recovery Email")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Enter a real email address for password recovery.");OutlinedTextField(email,{email=it},label={Text("Recovery email")});PasswordField(current,{current=it},"Current password",showCurrent,{showCurrent=!showCurrent});error?.let{Text(it,color=MaterialTheme.colorScheme.error)}}},confirmButton={TextButton(onClick={if(email.isBlank()||!android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches())error="Enter a valid email address." else if(current.isBlank())error="Enter your current password." else onSave(current,email)}){Text("Save")}},dismissButton={TextButton(onClick=onCancel){Text("Cancel")}})
 }
 
 @Composable private fun ChangeAdminPasswordDialog(onSave:(String,String)->Unit,onCancel:()->Unit){

@@ -4,12 +4,12 @@ import android.app.DatePickerDialog
 import android.Manifest
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Matrix
 import java.io.File
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
@@ -106,20 +106,25 @@ fun AddEditMemberScreen(viewModel: MemberViewModel, existingMember: Member? = nu
             localPhotoPreview = loadBitmap(context, cached)
         }
     }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap: Bitmap? ->
-        if (bitmap != null) {
-            val file = File(context.cacheDir, "member_${System.currentTimeMillis()}.jpg")
-            // TakePicturePreview has no EXIF orientation. This camera returns its preview rotated right,
-            // so store normalized pixels rather than relying on each image loader to guess orientation.
-            val upright = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { postRotate(-90f) }, true)
-            file.outputStream().use { upright.compress(Bitmap.CompressFormat.JPEG, 80, it) }
-            if (upright !== bitmap) upright.recycle()
-            val cached = Uri.fromFile(file)
-            photoUri = cached.toString()
-            localPhotoPreview = loadBitmap(context, cached)
+    var cameraOutputUri by remember { mutableStateOf<Uri?>(null) }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        val captured = cameraOutputUri
+        if (success && captured != null) {
+            photoUri = captured.toString()
+            localPhotoPreview = loadBitmap(context, captured)
+        } else if (!success && captured != null) {
+            runCatching { context.contentResolver.delete(captured, null, null) }
+        }
+        cameraOutputUri = null
+    }
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            val file = File(context.cacheDir, "member_camera_${System.currentTimeMillis()}.jpg")
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            cameraOutputUri = uri
+            camera.launch(uri)
         }
     }
-    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) camera.launch(null) }
 
 
     fun pickDate(initial: Long, onPicked: (Long) -> Unit) {
@@ -171,7 +176,7 @@ fun AddEditMemberScreen(viewModel: MemberViewModel, existingMember: Member? = nu
             OutlinedTextField(medicalIssues, { medicalIssues = it }, label = { Text("Medical issues") }, modifier = Modifier.fillMaxWidth())
 
             DateButton("Date of Joining", joinDate, df) { pickDate(joinDate, { joinDate = it }) }
-            DateButton("Membership Start", startDate, df) { pickDate(startDate, { startDate = it }) }
+            DateButton("Last Fees Date", startDate, df) { pickDate(startDate, { startDate = it }) }
 
             Text("Membership", style = MaterialTheme.typography.titleMedium)
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -193,8 +198,13 @@ fun AddEditMemberScreen(viewModel: MemberViewModel, existingMember: Member? = nu
                 val branch = selectedBranchId
                 if (name.isBlank() || phone.isBlank() || feeValue == null || branch == null) { savedError = "Please complete name, phone, branch and fee."; return@Button }
                 val custom = if (plan == PlanType.CUSTOM) customDays.toIntOrNull()?.coerceAtLeast(1) else null
+                val membershipCycleChanged = existingMember == null ||
+                    startDate != existingMember.membershipStartDateMillis ||
+                    plan != existingMember.planType ||
+                    custom != existingMember.customDurationDays
                 val due = viewModel.calculateDueDate(startDate, plan, custom)
-                val member = Member(id = existingMember?.id ?: 0, remoteId = existingMember?.remoteId, name = name.trim(), gender = gender, age = age.toIntOrNull(), weightKg = weight.toDoubleOrNull(), heightCm = height.toDoubleOrNull(), neckCm = neck.toDoubleOrNull(), waistCm = waist.toDoubleOrNull(), hipCm = hip.toDoubleOrNull(), medicalIssues = medicalIssues, place = place, goal = goal, phone = phone, photoUri = photoUri, branchId = branch, branchRemoteId = branches.firstOrNull { it.id == branch }?.remoteId, membershipCategory = category, joinDateMillis = joinDate, addedAtMillis = existingMember?.addedAtMillis ?: System.currentTimeMillis(), planType = plan, customDurationDays = custom, feeAmount = feeValue, membershipStartDateMillis = startDate, nextDueDateMillis = if (existingMember == null) due else existingMember.nextDueDateMillis, notes = existingMember?.notes ?: "", isArchived = existingMember?.isArchived ?: false, archivedAtMillis = existingMember?.archivedAtMillis)
+                val nextDue = if (membershipCycleChanged) due else existingMember!!.nextDueDateMillis
+                val member = Member(id = existingMember?.id ?: 0, remoteId = existingMember?.remoteId, name = name.trim(), gender = gender, age = age.toIntOrNull(), weightKg = weight.toDoubleOrNull(), heightCm = height.toDoubleOrNull(), neckCm = neck.toDoubleOrNull(), waistCm = waist.toDoubleOrNull(), hipCm = hip.toDoubleOrNull(), medicalIssues = medicalIssues, place = place, goal = goal, phone = phone, photoUri = photoUri, branchId = branch, branchRemoteId = branches.firstOrNull { it.id == branch }?.remoteId, membershipCategory = category, joinDateMillis = joinDate, addedAtMillis = existingMember?.addedAtMillis ?: System.currentTimeMillis(), planType = plan, customDurationDays = custom, feeAmount = feeValue, membershipStartDateMillis = startDate, nextDueDateMillis = nextDue, notes = existingMember?.notes ?: "", isArchived = existingMember?.isArchived ?: false, archivedAtMillis = existingMember?.archivedAtMillis)
                 savedError = null
                 if (existingMember == null) {
                     viewModel.addMember(

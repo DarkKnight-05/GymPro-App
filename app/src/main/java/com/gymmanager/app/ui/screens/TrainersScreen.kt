@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,19 +62,26 @@ fun TrainersScreen(viewModel: MemberViewModel, onBack: () -> Unit) {
 
 @Composable
 private fun ChangeTrainerPasswordDialog(trainer:TrainerAccount,onSave:(String)->Unit,onCancel:()->Unit){
-    var password by remember{mutableStateOf("")}; var confirm by remember{mutableStateOf("")}; var visible by remember{mutableStateOf(false)}; var error by remember{mutableStateOf<String?>(null)}
-    AlertDialog(onDismissRequest=onCancel,title={Text("Change password")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Set a new password for ${trainer.name}.");OutlinedTextField(password,{password=it},label={Text("New password")},visualTransformation=if(visible)androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),trailingIcon={TextButton(onClick={visible=!visible}){Text(if(visible)"Hide" else "Show")}});OutlinedTextField(confirm,{confirm=it},label={Text("Confirm password")},visualTransformation=PasswordVisualTransformation());error?.let{Text(it,color=MaterialTheme.colorScheme.error)}}},confirmButton={TextButton(onClick={if(password.length<6)error="Password must be at least 6 characters." else if(password!=confirm)error="Passwords don't match." else onSave(password)}){Text("Save")}},dismissButton={TextButton(onClick=onCancel){Text("Cancel")}})
+    var password by remember{mutableStateOf("")}; var confirm by remember{mutableStateOf("")}; var visible by remember{mutableStateOf(false)}; var confirmVisible by remember{mutableStateOf(false)}; var error by remember{mutableStateOf<String?>(null)}
+    AlertDialog(onDismissRequest=onCancel,title={Text("Change password")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Set a new password for ${trainer.name}.");PasswordField(password,{password=it},"New password",visible,{visible=!visible});PasswordField(confirm,{confirm=it},"Confirm password",confirmVisible,{confirmVisible=!confirmVisible});error?.let{Text(it,color=MaterialTheme.colorScheme.error)}}},confirmButton={TextButton(onClick={if(password.length<6)error="Password must be at least 6 characters." else if(password!=confirm)error="Passwords don't match." else onSave(password)}){Text("Save")}},dismissButton={TextButton(onClick=onCancel){Text("Cancel")}})
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TrainerDialog(title:String,existing:TrainerAccount?,branches:List<Branch>,onSave:(String,String,String,Long?)->Unit,onCancel:()->Unit){
-    var name by remember(existing?.id){mutableStateOf(existing?.name?:"")};var username by remember(existing?.id){mutableStateOf(existing?.username?:"")};var password by remember(existing?.id){mutableStateOf("")};var branchId by remember(existing?.id,branches){mutableStateOf(existing?.branchId?:branches.firstOrNull{it.remoteId==existing?.branchRemoteId}?.id?:branches.firstOrNull()?.id)};var expanded by remember{mutableStateOf(false)}
+    var name by remember(existing?.id){mutableStateOf(existing?.name?:"")};var username by remember(existing?.id){mutableStateOf(existing?.username?:"")};var password by remember(existing?.id){mutableStateOf("")};var passwordVisible by remember{mutableStateOf(false)};var branchId by remember(existing?.id,branches){mutableStateOf(existing?.branchId?:branches.firstOrNull{it.remoteId==existing?.branchRemoteId}?.id?:branches.firstOrNull()?.id)};var expanded by remember{mutableStateOf(false)}
     AlertDialog(onDismissRequest=onCancel,title={Text(title)},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
         OutlinedTextField(name,{name=it},label={Text("Trainer name")})
         OutlinedTextField(username,{if(existing==null)username=it},label={Text("Username")},supportingText={if(existing==null)Text("3–30 characters: letters, numbers, dots, underscores or hyphens.")},isError=existing==null && username.isNotBlank() && !username.trim().matches(Regex("[a-zA-Z0-9._-]{3,30}")),readOnly=existing!=null)
-        if(existing==null)OutlinedTextField(password,{password=it},label={Text("Password")},visualTransformation=PasswordVisualTransformation())
+        if(existing==null)PasswordField(password,{password=it},"Password",passwordVisible,{passwordVisible=!passwordVisible})
         ExposedDropdownMenuBox(expanded,{expanded=it}){OutlinedTextField(branches.firstOrNull{it.id==branchId}?.name?:"Select branch",{},readOnly=true,label={Text("Assigned branch *")},modifier=Modifier.menuAnchor().fillMaxWidth());ExposedDropdownMenu(expanded,{expanded=false}){branches.forEach{b->DropdownMenuItem({Text(b.name)},{branchId=b.id;expanded=false})}}}
         Text(if(existing==null)"The trainer signs in with this username and password. No trainer email is required." else "Use the Password button on the trainer list to change this trainer's password.",style=MaterialTheme.typography.bodySmall)
     }},confirmButton={TextButton(onClick={if(name.isNotBlank()&&username.trim().matches(Regex("[a-zA-Z0-9._-]{3,30}"))&&branchId!=null&&(existing!=null||password.length>=6))onSave(name,username.trim(),password,branchId)}){Text("Save")}},dismissButton={TextButton(onClick=onCancel){Text("Cancel")}})
+}
+
+@Composable
+private fun PasswordField(value:String,onValueChange:(String)->Unit,label:String,visible:Boolean,onToggle:()->Unit){
+    OutlinedTextField(value=value,onValueChange=onValueChange,label={Text(label)},singleLine=true,visualTransformation=if(visible) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),trailingIcon={
+        IconButton(onClick=onToggle){Icon(if(visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,contentDescription=if(visible) "Hide password" else "Show password")}
+    })
 }

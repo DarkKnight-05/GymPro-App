@@ -86,11 +86,21 @@ class MemberViewModel(private val repo: GymRepository, private val cloud: CloudS
                 branchRemoteId = branchRemote,
                 photoUri = member.photoUri?.takeIf { it.startsWith("https://") }
             )
+            // Create the Firestore member first so Storage security rules can verify
+            // the member's gym/branch before allowing the photo upload.
+            val localId = repo.addMember(saved.copy(photoUri = null))
             if (photoUri != null) {
                 if (context == null) throw IllegalStateException("Unable to access the selected photo.")
-                saved = saved.copy(photoUri = cloud.uploadMemberPhoto(context, photoUri, saved.remoteId!!))
+                try {
+                    val uploadedPhotoUrl = cloud.uploadMemberPhoto(context, photoUri, saved.remoteId!!)
+                    repo.updateMember(saved.copy(photoUri = uploadedPhotoUrl))
+                } catch (photoError: Exception) {
+                    // The member is already safely created. Do not make the user submit the
+                    // form again and risk creating a duplicate. The photo can be added later
+                    // from the member profile.
+                    onError("Member created, but profile photo upload failed. You can add the photo from the member profile.")
+                }
             }
-            val localId = repo.addMember(saved)
             onDone(localId)
         } catch (e: Exception) {
             onError(e.message ?: "Unable to save member.")
