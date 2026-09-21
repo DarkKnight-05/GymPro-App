@@ -244,6 +244,21 @@ class GymRepository {
         list.filter { it.memberId == memberId }.sortedByDescending { it.paidOnMillis }
     }
 
+    fun paymentsForDate(dateMillis: Long): Flow<List<Payment>> = _payments.map { list ->
+        val calendar = Calendar.getInstance().apply { timeInMillis = dateMillis }
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val start = calendar.timeInMillis
+        val end = Calendar.getInstance().apply {
+            timeInMillis = start
+            add(Calendar.DAY_OF_MONTH, 1)
+        }.timeInMillis
+        list.filter { it.paidOnMillis >= start && it.paidOnMillis < end }
+            .sortedByDescending { it.paidOnMillis }
+    }
+
     suspend fun recordPayment(member: Member, amount: Double, method: PaymentMethod, note: String = "", recordedBy: String = ""): Payment {
         val memberRemote = member.remoteId ?: error("Member is not synchronized with the cloud")
         val branchRemote = member.branchRemoteId ?: error("Member branch is missing")
