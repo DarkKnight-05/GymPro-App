@@ -68,6 +68,10 @@ fun AddEditMemberScreen(viewModel: MemberViewModel, existingMember: Member? = nu
     var branchExpanded by remember { mutableStateOf(false) }
     var planExpanded by remember { mutableStateOf(false) }
     var savedError by remember { mutableStateOf<String?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
+    val draftRemoteId = remember(existingMember?.id) {
+        if (existingMember == null) java.util.UUID.randomUUID().toString() else null
+    }
 
     // The edit screen is opened before produceState() in MainActivity has finished
     // loading the member. The first composition therefore receives null and the
@@ -193,7 +197,8 @@ fun AddEditMemberScreen(viewModel: MemberViewModel, existingMember: Member? = nu
             Text("Date Added: ${df.format(Date(existingMember?.addedAtMillis ?: System.currentTimeMillis()))}", style = MaterialTheme.typography.bodySmall)
 
             savedError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            Button(onClick = {
+            Button(enabled = !isSaving, onClick = {
+                if (isSaving) return@Button
                 val feeValue = fee.toDoubleOrNull()
                 val branch = selectedBranchId
                 if (name.isBlank() || phone.isBlank() || feeValue == null || branch == null) { savedError = "Please complete name, phone, branch and fee."; return@Button }
@@ -204,15 +209,16 @@ fun AddEditMemberScreen(viewModel: MemberViewModel, existingMember: Member? = nu
                     custom != existingMember.customDurationDays
                 val due = viewModel.calculateDueDate(startDate, plan, custom)
                 val nextDue = if (membershipCycleChanged) due else existingMember!!.nextDueDateMillis
-                val member = Member(id = existingMember?.id ?: 0, remoteId = existingMember?.remoteId, name = name.trim(), gender = gender, age = age.toIntOrNull(), weightKg = weight.toDoubleOrNull(), heightCm = height.toDoubleOrNull(), neckCm = neck.toDoubleOrNull(), waistCm = waist.toDoubleOrNull(), hipCm = hip.toDoubleOrNull(), medicalIssues = medicalIssues, place = place, goal = goal, phone = phone, photoUri = photoUri, branchId = branch, branchRemoteId = branches.firstOrNull { it.id == branch }?.remoteId, membershipCategory = category, joinDateMillis = joinDate, addedAtMillis = existingMember?.addedAtMillis ?: System.currentTimeMillis(), planType = plan, customDurationDays = custom, feeAmount = feeValue, membershipStartDateMillis = startDate, nextDueDateMillis = nextDue, notes = existingMember?.notes ?: "", isArchived = existingMember?.isArchived ?: false, archivedAtMillis = existingMember?.archivedAtMillis)
+                val member = Member(id = existingMember?.id ?: 0, remoteId = existingMember?.remoteId ?: draftRemoteId, name = name.trim(), gender = gender, age = age.toIntOrNull(), weightKg = weight.toDoubleOrNull(), heightCm = height.toDoubleOrNull(), neckCm = neck.toDoubleOrNull(), waistCm = waist.toDoubleOrNull(), hipCm = hip.toDoubleOrNull(), medicalIssues = medicalIssues, place = place, goal = goal, phone = phone, photoUri = photoUri, branchId = branch, branchRemoteId = branches.firstOrNull { it.id == branch }?.remoteId, membershipCategory = category, joinDateMillis = joinDate, addedAtMillis = existingMember?.addedAtMillis ?: System.currentTimeMillis(), planType = plan, customDurationDays = custom, feeAmount = feeValue, membershipStartDateMillis = startDate, nextDueDateMillis = nextDue, notes = existingMember?.notes ?: "", isArchived = existingMember?.isArchived ?: false, archivedAtMillis = existingMember?.archivedAtMillis)
                 savedError = null
+                isSaving = true
                 if (existingMember == null) {
                     viewModel.addMember(
                         member,
                         photoUri?.let(Uri::parse),
                         context,
                         onDone = { onDone() },
-                        onError = { savedError = it }
+                        onError = { isSaving = false; savedError = it }
                     )
                 } else {
                     val changedPhoto = photoUri
@@ -226,7 +232,15 @@ fun AddEditMemberScreen(viewModel: MemberViewModel, existingMember: Member? = nu
                         onError = { savedError = it }
                     )
                 }
-            }, modifier = Modifier.fillMaxWidth()) { Text(if (existingMember == null) "Add Member" else "Save Changes") }
+            }, modifier = Modifier.fillMaxWidth()) {
+                if (isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Saving...")
+                } else {
+                    Text(if (existingMember == null) "Add Member" else "Save Changes")
+                }
+            }
         }
     }
 }
