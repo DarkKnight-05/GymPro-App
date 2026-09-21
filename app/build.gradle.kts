@@ -11,23 +11,40 @@ android {
         applicationId = "com.gymmanager.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
     }
 
+    // Release signing is configured only when the local signing properties exist.
+    // This allows GitHub Actions to build debug APKs without exposing signing secrets.
     signingConfigs {
-        create("release") {
-            storeFile = file(project.findProperty("GYMPRO_STORE_FILE") as String)
-            storePassword = project.findProperty("GYMPRO_STORE_PASSWORD") as String
-            keyAlias = project.findProperty("GYMPRO_KEY_ALIAS") as String
-            keyPassword = project.findProperty("GYMPRO_KEY_PASSWORD") as String
+        val releaseStoreFile = project.findProperty("GYMPRO_STORE_FILE") as String?
+        val releaseStorePassword = project.findProperty("GYMPRO_STORE_PASSWORD") as String?
+        val releaseKeyAlias = project.findProperty("GYMPRO_KEY_ALIAS") as String?
+        val releaseKeyPassword = project.findProperty("GYMPRO_KEY_PASSWORD") as String?
+
+        if (
+            releaseStoreFile != null &&
+            releaseStorePassword != null &&
+            releaseKeyAlias != null &&
+            releaseKeyPassword != null
+        ) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+
+            if (signingConfigs.findByName("release") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -71,13 +88,13 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
 
-    // WorkManager (for scheduled fee-due checks / notifications)
+    // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
-    // Image loading for member photos
+    // Image loading
     implementation("io.coil-kt:coil-compose:2.6.0")
 
-    // Local settings storage (theme/UI preferences only; no gym business data)
+    // Local settings storage
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // Firebase
