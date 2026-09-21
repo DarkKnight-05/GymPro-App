@@ -82,7 +82,7 @@ fun GymManagerApp(repo: GymRepository, settingsStore: SettingsStore) {
             DashboardScreen(
                 viewModel = viewModel, role = role,
                 onMembers = { navController.navigate("list") }, onAddMember = { navController.navigate("add") },
-                onOpenArchived = { navController.navigate("archived") }, onOpenReports = { navController.navigate("reports") },
+                onOpenArchived = { navController.navigate("archived") }, onOpenReports = { navController.navigate("reports") }, onOpenDailyPayments = { navController.navigate("daily-payments") },
                 onOpenBranches = { navController.navigate("branches") }, onOpenExpiry = { navController.navigate("expiry") },
                 onOpenSettings = { navController.navigate("settings") }, onOpenTrainers = { navController.navigate("trainers") },
                 onLogout = {
@@ -168,6 +168,9 @@ fun GymManagerApp(repo: GymRepository, settingsStore: SettingsStore) {
             } else {
                 LaunchedEffect(Unit) { navController.popBackStack() }
             }
+        }
+        composable("daily-payments") {
+            DailyPaymentsScreen(viewModel = viewModel) { navController.popBackStack() }
         }
         composable("add") {
             AddEditMemberScreen(viewModel = viewModel, existingMember = null, role = currentRole ?: Role.TRAINER) {
