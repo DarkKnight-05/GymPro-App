@@ -148,6 +148,7 @@ class MemberViewModel(private val repo: GymRepository, private val cloud: CloudS
     }
     suspend fun getMember(id:Long)=repo.getMember(id)
     fun paymentsForMember(id:Long)=repo.paymentsForMember(id)
+    fun paymentsForDate(dateMillis:Long)=repo.paymentsForDate(dateMillis)
     fun measurementsForMember(id:Long)=repo.measurementsForMember(id)
     fun addMeasurement(item:MeasurementRecord)=viewModelScope.launch{repo.addMeasurement(item)}
 
