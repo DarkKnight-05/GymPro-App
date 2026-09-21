@@ -1,6 +1,7 @@
 package com.gymmanager.app.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -38,7 +39,7 @@ private val WildcardSemiItalic = FontFamily(
 fun DashboardScreen(
     viewModel: MemberViewModel, role: Role, onMembers: () -> Unit, onAddMember: () -> Unit,
     onOpenArchived: () -> Unit, onOpenReports: () -> Unit, onOpenBranches: () -> Unit,
-    onOpenExpiry: () -> Unit, onOpenSettings: () -> Unit, onOpenTrainers: () -> Unit, onLogout: () -> Unit
+    onOpenExpiry: () -> Unit, onOpenDailyPayments: () -> Unit, onOpenSettings: () -> Unit, onOpenTrainers: () -> Unit, onLogout: () -> Unit
 ) {
     val members by viewModel.activeMembers.collectAsState()
     val expired by viewModel.expiredMembers.collectAsState()
@@ -83,6 +84,7 @@ fun DashboardScreen(
             NavigationDrawerItem(label = { Text("Membership Expiry") }, selected = false, onClick = { drawerOpen = false; onOpenExpiry() }, icon = { Icon(Icons.Default.Event, null) })
             if (role == Role.ADMIN) {
                 NavigationDrawerItem(label = { Text("Fee Review") }, selected = false, onClick = { drawerOpen = false; onOpenReports() }, icon = { Icon(Icons.Default.Payments, null) })
+                NavigationDrawerItem(label = { Text("Daily Payments") }, selected = false, onClick = { drawerOpen = false; onOpenDailyPayments() }, icon = { Icon(Icons.Default.ReceiptLong, null) })
                 NavigationDrawerItem(label = { Text("Trainers") }, selected = false, onClick = { drawerOpen = false; onOpenTrainers() }, icon = { Icon(Icons.Default.Badge, null) })
                 NavigationDrawerItem(label = { Text("Branches") }, selected = false, onClick = { drawerOpen = false; onOpenBranches() }, icon = { Icon(Icons.Default.Business, null) })
             }
@@ -135,18 +137,18 @@ fun DashboardScreen(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    DashboardCard("Total members", members.size.toString(), Modifier.weight(1f))
-                    DashboardCard("New members", newMembers.toString(), Modifier.weight(1f))
+                    DashboardCard("Total members", members.size.toString(), Modifier.weight(1f), onClick = onMembers)
+                    DashboardCard("New members", newMembers.toString(), Modifier.weight(1f), onClick = onMembers)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    DashboardCard("Due members", expired.size.toString(), Modifier.weight(1f))
-                    DashboardCard("Expiring soon", expiring.size.toString(), Modifier.weight(1f))
+                    DashboardCard("Due members", expired.size.toString(), Modifier.weight(1f), onClick = onOpenExpiry)
+                    DashboardCard("Expiring soon", expiring.size.toString(), Modifier.weight(1f), onClick = onOpenExpiry)
                 }
                 if (role == Role.ADMIN) {
                     Text("Today's fee review", style = MaterialTheme.typography.titleMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        DashboardCard("All branches", "₹${"%.0f".format(review?.feesCollected ?: 0.0)}", Modifier.weight(1f))
-                        DashboardCard("Payments", "${review?.paymentCount ?: 0}", Modifier.weight(1f))
+                        DashboardCard("All branches", "₹${"%.0f".format(review?.feesCollected ?: 0.0)}", Modifier.weight(1f), onClick = onOpenReports)
+                        DashboardCard("Payments", "${review?.paymentCount ?: 0}", Modifier.weight(1f), onClick = onOpenDailyPayments)
                     }
                     viewModel.branches.collectAsState().value.forEach { branch ->
                         val branchReview = todayBranchReviews[branch.id] ?: PeriodReview(0.0, 0)
@@ -166,14 +168,9 @@ fun DashboardScreen(
                         }
                     }
                 }
-                Button(onClick = onMembers, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.People, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Manage members")
-                }
             }
         }
     }
 }
 
-@Composable private fun DashboardCard(label: String, value: String, modifier: Modifier) { ElevatedCard(modifier) { Column(Modifier.padding(12.dp)) { Text(label, style = MaterialTheme.typography.labelSmall); Text(value, style = MaterialTheme.typography.titleLarge) } } }
+@Composable private fun DashboardCard(label: String, value: String, modifier: Modifier, onClick: (() -> Unit)? = null) { ElevatedCard(modifier = if (onClick != null) modifier.clickable { onClick() } else modifier) { Column(Modifier.padding(12.dp)) { Text(label, style = MaterialTheme.typography.labelSmall); Text(value, style = MaterialTheme.typography.titleLarge) } } }
