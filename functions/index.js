@@ -42,3 +42,71 @@ exports.adminDeleteTrainer = onCall(async (request) => {
   await getAuth().deleteUser(trainerId);
   return { ok: true };
 });
+
+
+async function deleteQueryDocs(query) {
+  let deleted = 0;
+  while (true) {
+    const snap = await query.limit(450).get();
+    if (snap.empty) break;
+    const batch = db.batch();
+    snap.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+    deleted += snap.size;
+    if (snap.size < 450) break;
+  }
+  return deleted;
+}
+
+/**
+ * Permanent member deletion is deliberately privileged.
+ * It removes the member and all business records owned by that member,
+ * plus the member's Storage photo directory. Archive/restore remains the
+ * normal reversible workflow.
+ */
+exports.adminDeleteMember = onCall(async (request) => {
+  const caller = await requireAdmin(request);
+  const { memberId } = request.data || {};
+  if (typeof memberId !== "string" || !memberId.trim()) {
+    throw new HttpsError("invalid-argument", "Member ID is required.");
+  }
+
+  const gymId = caller.get("gymId");
+  const memberRef = db.doc(`gyms/${gymId}/members/${memberId}`);
+  const member = await memberRef.get();
+  if (!member.exists) {
+    throw new HttpsError("not-found", "Member not found in this gym.");
+  }
+
+  if (!member.get("branchRemoteId")) {
+    throw new HttpsError("failed-precondition", "Member branch information is missing.");
+  }
+
+  await deleteQueryDocs(
+    db.collection(`gyms/${gymId}/payments`).whereEqualTo("memberRemoteId", memberId)
+  );
+  await deleteQueryDocs(
+    db.collection(`gyms/${gymId}/measurements`).whereEqualTo("memberRemoteId", memberId)
+  );
+  await deleteQueryDocs(
+    db.collection(`gyms/${gymId}/attendance`).whereEqualTo("memberRemoteId", memberId)
+  );
+
+  await memberRef.delete();
+
+  const { getStorage } = require("firebase-admin/storage");
+  try {
+    const bucket = getStorage().bucket();
+    await bucket.deleteFiles({
+      prefix: `gyms/${gymId}/members/${memberId}/`
+    });
+  } catch (error) {
+    console.error("Member photo cleanup failed:", error);
+    throw new HttpsError(
+      "internal",
+      "Member records were deleted, but profile-photo cleanup failed."
+    );
+  }
+
+  return { ok: true };
+});
