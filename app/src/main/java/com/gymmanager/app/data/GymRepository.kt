@@ -250,20 +250,20 @@ class GymRepository {
         val paymentRemoteId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
 
-        // Keep the billing anniversary anchored to the existing cycle. If the member is
-        // already overdue, advance that cycle until the next due date is in the future.
-        var cycleStart = member.nextDueDateMillis.takeIf { it > 0L } ?: member.membershipStartDateMillis
-        if (cycleStart <= now) {
-            // Late payment: move forward from the established anniversary until the
-            // next cycle is in the future. The receipt date never becomes the anniversary.
-            while (cycleStart <= now) {
-                cycleStart = calculateDueDate(cycleStart, member.planType, member.customDurationDays)
-            }
-        } else {
-            // Payment made before the current due date: renew one full cycle from that due date.
-            cycleStart = calculateDueDate(cycleStart, member.planType, member.customDurationDays)
-        }
-        val newDueDate = cycleStart
+        // Keep the membership anniversary anchored to the member's existing due date.
+        // Every payment renews exactly ONE membership cycle from the current due date.
+        //
+        // Example:
+        // Current due date = 13 Aug
+        // Payment made late = 30 Sep
+        // New due date = 13 Sep
+        //
+        // The payment date must never cause us to skip multiple membership cycles.
+        val currentDueDate =
+            member.nextDueDateMillis.takeIf { it > 0L }
+                ?: member.membershipStartDateMillis
+        val newDueDate =
+            calculateDueDate(currentDueDate, member.planType, member.customDurationDays)
 
         val payment = Payment(
             id = stableId(paymentRemoteId), remoteId = paymentRemoteId,
